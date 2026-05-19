@@ -1,0 +1,29 @@
+name: itzin
+description: "Aplikasi Izin Siswa - Manajemen izin keluar siswa."
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  supabase_flutter: ^2.8.4
+  intl: ^0.20.2
+  google_fonts: ^6.2.1
+  share_plus: ^13.1.0
+  path_provider: ^2.1.5
+  excel: ^4.0.6
+  image_picker: ^1.2.2
+  file_picker: ^3.0.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
