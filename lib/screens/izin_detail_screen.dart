@@ -113,10 +113,10 @@ class _IzinDetailScreenState extends State<IzinDetailScreen> {
             const SizedBox(height: 12),
             Text(
               isApprove ? 'Izinkan Siswa?' : 'Tolak Izin?',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary),
+                  color: Theme.of(context).textTheme.bodyLarge?.color),
             ),
             const SizedBox(height: 4),
             Text(
@@ -128,11 +128,14 @@ class _IzinDetailScreenState extends State<IzinDetailScreen> {
             TextField(
               controller: catatanController,
               maxLines: 3,
+              style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
               decoration: InputDecoration(
                 labelText: 'Catatan (opsional)',
+                labelStyle: const TextStyle(color: AppColors.textSecondary),
                 hintText: isApprove
                     ? 'Misal: Silakan izin keluar'
                     : 'Alasan penolakan...',
+                hintStyle: const TextStyle(color: AppColors.textMuted),
                 border:
                     OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
@@ -161,8 +164,8 @@ class _IzinDetailScreenState extends State<IzinDetailScreen> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
-                    onPressed: () => Navigator.pop(ctx, true),
                     child: Text(isApprove ? 'Izinkan' : 'Tolak'),
+                    onPressed: () => Navigator.pop(ctx, true),
                   ),
                 ),
               ],
@@ -174,17 +177,27 @@ class _IzinDetailScreenState extends State<IzinDetailScreen> {
 
     if (confirm == true) {
       setState(() => _isProcessing = true);
+      
+      // Mengambil ID Admin/Guru yang sedang aktif login
+      final currentAdminId = Supabase.instance.client.auth.currentUser?.id;
+
       final result = await _izinService.updateStatusIzin(
         izinId: _izin['id'],
         status: action,
         catatan: catatanController.text,
+        disetujuiOleh: currentAdminId, // <-- SEKARANG ID GURU SUDAH DIKIRIM KE RPC
       );
+      
       catatanController.dispose();
       if (!mounted) return;
       setState(() => _isProcessing = false);
 
       if (result['success'] == true) {
-        setState(() => _izin['status'] = action);
+        setState(() {
+          _izin['status'] = action;
+          _izin['catatan_admin'] = catatanController.text;
+        });
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(action == 'diizinkan'
@@ -195,7 +208,6 @@ class _IzinDetailScreenState extends State<IzinDetailScreen> {
                 : AppColors.statusDitolak,
           ),
         );
-        // Pop back and signal a refresh is needed
         if (mounted) Navigator.pop(context, true);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -221,8 +233,14 @@ class _IzinDetailScreenState extends State<IzinDetailScreen> {
     final catatan = _izin['catatan_admin'] ?? _izin['catatan'];
     final isMenunggu = status == 'menunggu';
 
+    // Ekstraksi info nama guru pemeriksa dari IzinService
+    final pemeriksa = _izin['pemeriksa'] as Map<String, dynamic>?;
+    final namaGuru = pemeriksa != null ? pemeriksa['nama_lengkap'] : null;
+
+    final textThemeColor = Theme.of(context).textTheme.bodyLarge?.color;
+
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Detail Izin'),
         leading: IconButton(
@@ -266,10 +284,10 @@ class _IzinDetailScreenState extends State<IzinDetailScreen> {
                                 namaLengkap.isNotEmpty && namaLengkap != '-'
                                     ? namaLengkap
                                     : (widget.isAdmin ? 'Siswa' : 'Pengguna'),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: AppColors.textPrimary,
+                                  color: textThemeColor,
                                 ),
                               ),
                               if (widget.isAdmin)
@@ -301,10 +319,10 @@ class _IzinDetailScreenState extends State<IzinDetailScreen> {
                     const SizedBox(height: 10),
                     Text(
                       alasan,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                        color: textThemeColor,
                         height: 1.4,
                       ),
                     ),
@@ -314,7 +332,7 @@ class _IzinDetailScreenState extends State<IzinDetailScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Info
+            // Info Waktu
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -350,6 +368,48 @@ class _IzinDetailScreenState extends State<IzinDetailScreen> {
                 ),
               ),
             ),
+
+            // KARTU BARU: MENAMPILKAN NAMA GURU YANG MENGIZINKAN/MENOLAK
+            if (!isMenunggu && namaGuru != null) ...[
+              const SizedBox(height: 12),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Icon(
+                        status == 'diizinkan' 
+                            ? Icons.assignment_ind_rounded 
+                            : Icons.gpp_bad_rounded,
+                        color: status == 'diizinkan' ? AppColors.success : AppColors.error,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              status == 'diizinkan' ? 'Disetujui Oleh' : 'Ditolak Oleh',
+                              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              namaGuru,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: textThemeColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
 
             // Catatan admin (if rejected / approved with note)
             if (catatan != null && catatan.toString().isNotEmpty) ...[
@@ -463,10 +523,10 @@ class _DetailRow extends StatelessWidget {
                       fontSize: 12, color: AppColors.textMuted)),
               const SizedBox(height: 2),
               Text(value,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.textPrimary)),
+                      color: Theme.of(context).textTheme.bodyLarge?.color)),
             ],
           ),
         ),
@@ -511,4 +571,4 @@ class _StatusChip extends StatelessWidget {
               TextStyle(fontSize: 12, color: fg, fontWeight: FontWeight.w600)),
     );
   }
-}
+} 

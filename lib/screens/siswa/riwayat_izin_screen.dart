@@ -64,6 +64,8 @@ class _RiwayatIzinScreenState extends State<RiwayatIzinScreen> {
   }
 
   Widget _buildEmptyState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return ListView(
       children: [
         SizedBox(height: MediaQuery.of(context).size.height * 0.2),
@@ -73,23 +75,23 @@ class _RiwayatIzinScreenState extends State<RiwayatIzinScreen> {
             Icon(
               Icons.inbox_outlined,
               size: 72,
-              color: AppColors.textMuted.withValues(alpha: 0.5),
+              color: isDark ? Colors.white30 : AppColors.textMuted.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Belum ada riwayat izin',
               style: TextStyle(
                 fontSize: 16,
-                color: AppColors.textSecondary,
+                color: isDark ? Colors.white70 : AppColors.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Ajukan izin dari tab "Buat Izin"',
               style: TextStyle(
                 fontSize: 13,
-                color: AppColors.textMuted,
+                color: isDark ? Colors.white54 : AppColors.textMuted,
               ),
             ),
           ],
@@ -118,22 +120,32 @@ class _IzinItem extends StatelessWidget {
             .format(DateTime.parse(data['created_at']).toLocal())
         : '';
 
+    // Deteksi Mode Gelap
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: isDark ? AppColors.dividerDark : AppColors.divider,
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Row Tanggal + Status Badge
             Row(
               children: [
                 Expanded(
                   child: Text(
                     tanggal,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 15,
-                      color: AppColors.textPrimary,
+                      color: isDark ? Colors.white : AppColors.textPrimary, // Perbaikan warna tanggal
                     ),
                   ),
                 ),
@@ -141,38 +153,43 @@ class _IzinItem extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            const Divider(height: 1, color: AppColors.divider),
+            Divider(
+              height: 1, 
+              color: isDark ? AppColors.dividerDark : AppColors.divider, // Perbaikan warna divider
+            ),
             const SizedBox(height: 10),
+            
+            // Row Alasan / Keterangan Dispen
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
+                Icon(
                   Icons.notes_rounded,
                   size: 16,
-                  color: AppColors.textMuted,
+                  color: isDark ? Colors.white60 : AppColors.textMuted,
                 ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     alasan,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
-                      color: AppColors.textSecondary,
+                      color: isDark ? Colors.white70 : AppColors.textSecondary, // Perbaikan warna text alasan
                     ),
                   ),
                 ),
               ],
             ),
 
-            // Jam keluar/kembali
+            // Jam keluar / kembali
             if (data['jam_keluar'] != null || data['jam_kembali'] != null) ...[
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.access_time_outlined,
                     size: 16,
-                    color: AppColors.textMuted,
+                    color: isDark ? Colors.white60 : AppColors.textMuted,
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -182,9 +199,9 @@ class _IzinItem extends StatelessWidget {
                       if (data['jam_kembali'] != null)
                         'Kembali: ${_formatTime(data['jam_kembali'])}',
                     ].join('  •  '),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.textMuted,
+                      color: isDark ? Colors.white60 : AppColors.textMuted, // Perbaikan warna teks jam
                     ),
                   ),
                 ],
@@ -225,11 +242,12 @@ class _IzinItem extends StatelessWidget {
             ],
 
             const SizedBox(height: 10),
+            // Teks Diajukan di bagian bawah
             Text(
               'Diajukan: $createdAt',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
-                color: AppColors.textMuted,
+                color: isDark ? Colors.white38 : AppColors.textMuted, // Perbaikan warna teks diajukan
               ),
             ),
           ],
@@ -239,7 +257,6 @@ class _IzinItem extends StatelessWidget {
   }
 
   String _formatTime(String timeStr) {
-    // timeStr format: "HH:mm:ss"
     final parts = timeStr.split(':');
     if (parts.length >= 2) return '${parts[0]}:${parts[1]}';
     return timeStr;

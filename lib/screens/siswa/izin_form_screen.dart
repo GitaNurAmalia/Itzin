@@ -161,12 +161,12 @@ class _IzinFormScreenState extends State<IzinFormScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Formulir Pengajuan Izin',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -396,7 +396,9 @@ class _DatePickerField extends StatelessWidget {
           value ?? (isRequired ? 'Pilih tanggal' : 'Tidak diisi'),
           style: TextStyle(
             fontSize: 14,
-            color: value != null ? AppColors.textPrimary : AppColors.textMuted,
+            color: value != null 
+                ? Theme.of(context).textTheme.bodyLarge?.color 
+                : AppColors.textMuted,
           ),
         ),
       ),

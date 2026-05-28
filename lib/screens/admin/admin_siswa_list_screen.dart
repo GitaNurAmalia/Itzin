@@ -28,6 +28,7 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
   }
 
   Future<void> _fetchSiswa() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       final response = await _supabase
@@ -108,10 +109,12 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
     final formKey = GlobalKey<FormState>();
     bool isSaving = false;
 
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -132,18 +135,18 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'Edit Data Siswa',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: isDarkMode ? Colors.white : AppColors.textPrimary,
                         ),
                       ),
                       IconButton(
                         onPressed: () => Navigator.pop(context),
                         icon: const Icon(Icons.close_rounded),
-                        color: AppColors.textSecondary,
+                        color: isDarkMode ? Colors.white60 : AppColors.textSecondary,
                       ),
                     ],
                   ),
@@ -155,6 +158,7 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
                         TextFormField(
                           controller: nameController,
                           textCapitalization: TextCapitalization.words,
+                          style: TextStyle(color: isDarkMode ? Colors.white : null),
                           decoration: const InputDecoration(
                             labelText: 'Nama Lengkap',
                             prefixIcon: Icon(Icons.person_outline),
@@ -165,6 +169,7 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
                         TextFormField(
                           controller: nisController,
                           keyboardType: TextInputType.number,
+                          style: TextStyle(color: isDarkMode ? Colors.white : null),
                           decoration: const InputDecoration(
                             labelText: 'Nomor Induk Siswa (NIS)',
                             prefixIcon: Icon(Icons.badge_outlined),
@@ -175,6 +180,7 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
                         TextFormField(
                           controller: kelasController,
                           textCapitalization: TextCapitalization.characters,
+                          style: TextStyle(color: isDarkMode ? Colors.white : null),
                           decoration: const InputDecoration(
                             labelText: 'Kelas (Contoh: X RPL 1)',
                             prefixIcon: Icon(Icons.class_outlined),
@@ -201,6 +207,7 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
                         child: ElevatedButton(
                           onPressed: isSaving ? null : () async {
                             if (!formKey.currentState!.validate()) return;
+                            
                             setDialogState(() => isSaving = true);
                             
                             try {
@@ -210,9 +217,14 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
                                 'kelas': kelasController.text.trim(),
                               }).eq('id', siswa['id']);
                               
-                              if (mounted) {
+                              if (context.mounted) {
                                 Navigator.pop(context);
-                                _fetchSiswa();
+                              }
+                              
+                              // Pemicu refresh screen utama dan snackbar diletakkan di luar context dialog yang sudah mati
+                              _fetchSiswa();
+                              
+                              if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text('Data siswa berhasil diperbarui'),
@@ -221,7 +233,10 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
                                 );
                               }
                             } catch (e) {
-                              setDialogState(() => isSaving = false);
+                              // Memastikan setDialogState aman dari error unmounted dialog
+                              if (context.mounted) {
+                                setDialogState(() => isSaving = false);
+                              }
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
@@ -258,10 +273,12 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
     String tempTingkat = _selectedTingkat;
     String tempJurusan = _selectedJurusan;
 
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -287,7 +304,6 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                     child: Stack(
@@ -300,35 +316,34 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
                             constraints: const BoxConstraints(),
                             onPressed: () => Navigator.pop(context),
                             icon: const Icon(Icons.close_rounded, size: 28),
-                            color: AppColors.textPrimary,
+                            color: isDarkMode ? Colors.white : AppColors.textPrimary,
                           ),
                         ),
-                        const Text(
+                        Text(
                           'Filter',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
+                            color: isDarkMode ? Colors.white : AppColors.textPrimary,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const Divider(height: 1, color: AppColors.divider),
+                  Divider(height: 1, color: isDarkMode ? Colors.grey[800] : AppColors.divider),
                   
-                  // Content
                   Expanded(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.all(24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Kelas / Tingkat',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
+                              color: isDarkMode ? Colors.white : AppColors.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -342,17 +357,21 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                   decoration: BoxDecoration(
-                                    color: isSelected ? Colors.white : Colors.grey.shade100,
+                                    color: isSelected 
+                                        ? (isDarkMode ? AppColors.primary.withAlpha(51) : Colors.white) 
+                                        : (isDarkMode ? Colors.grey[800] : Colors.grey.shade100),
                                     borderRadius: BorderRadius.circular(24),
                                     border: Border.all(
-                                      color: isSelected ? AppColors.primary : Colors.transparent, // Warna orange sesuai referensi
+                                      color: isSelected ? AppColors.primary : Colors.transparent,
                                       width: 1,
                                     ),
                                   ),
                                   child: Text(
                                     t,
                                     style: TextStyle(
-                                      color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                                      color: isSelected 
+                                          ? AppColors.primary 
+                                          : (isDarkMode ? Colors.white70 : AppColors.textPrimary),
                                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                                     ),
                                   ),
@@ -361,12 +380,12 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
                             }).toList(),
                           ),
                           const SizedBox(height: 32),
-                          const Text(
+                          Text(
                             'Jurusan',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
+                              color: isDarkMode ? Colors.white : AppColors.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -380,7 +399,9 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                   decoration: BoxDecoration(
-                                    color: isSelected ? Colors.white : Colors.grey.shade100,
+                                    color: isSelected 
+                                        ? (isDarkMode ? AppColors.primary.withAlpha(51) : Colors.white) 
+                                        : (isDarkMode ? Colors.grey[800] : Colors.grey.shade100),
                                     borderRadius: BorderRadius.circular(24),
                                     border: Border.all(
                                       color: isSelected ? AppColors.primary : Colors.transparent,
@@ -390,7 +411,9 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
                                   child: Text(
                                     j,
                                     style: TextStyle(
-                                      color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                                      color: isSelected 
+                                          ? AppColors.primary 
+                                          : (isDarkMode ? Colors.white70 : AppColors.textPrimary),
                                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                                     ),
                                   ),
@@ -403,12 +426,11 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
                     ),
                   ),
                   
-                  // Bottom Bar
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                      color: isDarkMode ? Colors.grey[900] : Colors.white,
+                      border: Border(top: BorderSide(color: isDarkMode ? Colors.grey[800]! : Colors.grey.shade200)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -420,10 +442,10 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
                               tempJurusan = 'Semua';
                             });
                           },
-                          child: const Text(
+                          child: Text(
                             'Clear',
                             style: TextStyle(
-                              color: AppColors.textSecondary,
+                              color: isDarkMode ? Colors.white60 : AppColors.textSecondary,
                               fontWeight: FontWeight.w600,
                               fontSize: 16,
                               decoration: TextDecoration.underline,
@@ -470,10 +492,11 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
   Widget build(BuildContext context) {
     final displayList = _filteredSiswa;
     final isFiltered = _selectedTingkat != 'Semua' || _selectedJurusan != 'Semua';
+    
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
       children: [
-        // Header Count & Filter Button
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
@@ -484,10 +507,10 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
                   children: [
                     Text(
                       'Menampilkan ${displayList.length} Siswa',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                        color: isDarkMode ? Colors.white : AppColors.textPrimary,
                       ),
                     ),
                     if (isFiltered)
@@ -495,9 +518,9 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
                           '$_selectedTingkat • $_selectedJurusan',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.textSecondary,
+                            color: isDarkMode ? Colors.white60 : AppColors.textSecondary,
                           ),
                         ),
                       ),
@@ -509,28 +532,27 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
                 icon: Icon(
                   Icons.filter_list_rounded, 
                   size: 20,
-                  color: isFiltered ? AppColors.primary : AppColors.textSecondary,
+                  color: isFiltered ? AppColors.primary : (isDarkMode ? Colors.white60 : AppColors.textSecondary),
                 ),
                 label: Text(
                   'Filter',
                   style: TextStyle(
-                    color: isFiltered ? AppColors.primary : AppColors.textSecondary,
+                    color: isFiltered ? AppColors.primary : (isDarkMode ? Colors.white60 : AppColors.textSecondary),
                     fontWeight: isFiltered ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
               ),
               IconButton(
                 onPressed: _fetchSiswa,
-                icon: const Icon(Icons.refresh_rounded, size: 22, color: AppColors.textSecondary),
+                icon: Icon(Icons.refresh_rounded, size: 22, color: isDarkMode ? Colors.white60 : AppColors.textSecondary),
                 tooltip: 'Segarkan',
               ),
             ],
           ),
         ),
 
-        const Divider(height: 1, color: AppColors.divider),
+        Divider(height: 1, color: isDarkMode ? Colors.grey[800] : AppColors.divider),
 
-        // List
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
@@ -542,13 +564,13 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
                           Icon(
                             Icons.people_alt_outlined,
                             size: 64,
-                            color: AppColors.textMuted.withValues(alpha: 0.4),
+                            color: AppColors.textMuted.withAlpha(102),
                           ),
                           const SizedBox(height: 12),
                           Text(
                             isFiltered ? 'Tidak ada siswa yang sesuai filter' : 'Belum ada siswa',
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
+                            style: TextStyle(
+                              color: isDarkMode ? Colors.white60 : AppColors.textSecondary,
                               fontSize: 15,
                               fontWeight: FontWeight.w500,
                             ),
@@ -563,8 +585,7 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
                         itemCount: displayList.length,
                         itemBuilder: (ctx, i) {
                           final siswa = displayList[i];
-                          final id =
-                              siswa['id']?.toString().substring(0, 8) ?? '???';
+                          final id = siswa['id']?.toString().substring(0, 8) ?? '???';
                           final nama = siswa['nama_lengkap'] ?? 'Tanpa Nama';
                           final kelas = siswa['kelas'] ?? 'Kelas -';
                           final nis = siswa['nomor_induk'] ?? 'NIS: -';
@@ -579,9 +600,7 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
                                     backgroundColor: AppColors.primaryLight,
                                     radius: 24,
                                     child: Text(
-                                      nama.isNotEmpty
-                                          ? nama[0].toUpperCase()
-                                          : '?',
+                                      nama.isNotEmpty ? nama[0].toUpperCase() : '?',
                                       style: const TextStyle(
                                         color: AppColors.primary,
                                         fontWeight: FontWeight.bold,
@@ -592,38 +611,37 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           nama,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 15,
                                             fontWeight: FontWeight.w600,
-                                            color: AppColors.textPrimary,
+                                            color: isDarkMode ? Colors.white : AppColors.textPrimary,
                                           ),
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
                                           '$kelas • $nis',
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 12,
-                                            color: AppColors.textSecondary,
+                                            color: isDarkMode ? Colors.white60 : AppColors.textSecondary,
                                           ),
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
                                           'ID: $id...',
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 10,
-                                            color: AppColors.textMuted,
+                                            color: isDarkMode ? Colors.white38 : AppColors.textMuted,
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
                                   IconButton(
-                                    icon: const Icon(Icons.edit_outlined, color: AppColors.textSecondary),
+                                    icon: Icon(Icons.edit_outlined, color: isDarkMode ? Colors.white60 : AppColors.textSecondary),
                                     onPressed: () => _showEditDialog(siswa),
                                     tooltip: 'Edit Data Siswa',
                                   ),
@@ -639,4 +657,3 @@ class _AdminSiswaListScreenState extends State<AdminSiswaListScreen> {
     );
   }
 }
-

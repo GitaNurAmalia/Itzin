@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:share_plus/share_plus.dart';
-
 import 'package:itzin/services/izin_service.dart';
-import 'package:itzin/services/export_service.dart';
 import 'package:itzin/screens/izin_detail_screen.dart';
 import 'package:itzin/core/theme.dart';
 
@@ -20,6 +17,7 @@ class _AdminIzinListScreenState extends State<AdminIzinListScreen> {
   List<Map<String, dynamic>> _allData = [];
   bool _isLoading = true;
   String _filterStatus = 'menunggu'; // default filter
+  String _namaGuruLogin = 'Admin/Guru'; // Default penampung nama guru yang login
 
   final List<_FilterOption> _filters = const [
     _FilterOption(value: 'semua', label: 'Semua'),
@@ -32,10 +30,41 @@ class _AdminIzinListScreenState extends State<AdminIzinListScreen> {
   void initState() {
     super.initState();
     _izinService = IzinService(supabase: Supabase.instance.client);
-    _loadData();
+    _initDataAndProfile();
+  }
+
+  // Menggabungkan inisialisasi agar berjalan berurutan dengan benar
+  Future<void> _initDataAndProfile() async {
+    await _getGuruProfileName();
+    await _loadData();
+  }
+
+  // Fungsi untuk mengambil nama asli guru yang sedang login dari tabel profiles
+  Future<void> _getGuruProfileName() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        final profileData = await Supabase.instance.client
+            .from('profiles')
+            .select('nama_lengkap')
+            .eq('id', user.id)
+            .maybeSingle();
+
+        if (profileData != null && profileData['nama_lengkap'] != null) {
+          if (mounted) {
+            setState(() {
+              _namaGuruLogin = profileData['nama_lengkap'];
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Gagal mengambil profil nama guru: $e');
+    }
   }
 
   Future<void> _loadData() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       final data = await _izinService.getAllIzin();
@@ -69,7 +98,9 @@ class _AdminIzinListScreenState extends State<AdminIzinListScreen> {
     final catatanController = TextEditingController();
     final isApprove = action == 'diizinkan';
     final nama = izin['profiles']?['nama_lengkap'] ?? 'Siswa';
-    final tanggal = izin['tanggal_izin'] ?? '';
+    final tanggal = izin['tanggal_izin'] != null
+        ? DateFormat('EEE, d MMM yyyy', 'id_ID').format(DateTime.parse(izin['tanggal_izin']))
+        : '';
 
     bool? confirm = await showModalBottomSheet<bool>(
       context: context,
@@ -92,7 +123,9 @@ class _AdminIzinListScreenState extends State<AdminIzinListScreen> {
               height: 4,
               margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
-                color: AppColors.divider,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? AppColors.dividerDark
+                    : AppColors.divider,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -106,31 +139,53 @@ class _AdminIzinListScreenState extends State<AdminIzinListScreen> {
             const SizedBox(height: 12),
             Text(
               isApprove ? 'Izinkan Siswa?' : 'Tolak Izin?',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               '$nama — $tanggal',
-              style:
-                  const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              style: TextStyle(
+                fontSize: 13, 
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+              ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
+            
+            // INDIKATOR INFO OTOMATIS GURU
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.primaryLight.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.border_color_rounded, size: 14, color: AppColors.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Dikonfirmasi oleh: $_namaGuruLogin',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.primaryDark),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            
             TextField(
               controller: catatanController,
               maxLines: 3,
+              style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
               decoration: InputDecoration(
                 labelText: 'Catatan (opsional)',
                 hintText: isApprove
                     ? 'Misal: Silakan izin keluar'
                     : 'Alasan penolakan...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
               ),
             ),
             const SizedBox(height: 20),
@@ -185,10 +240,13 @@ class _AdminIzinListScreenState extends State<AdminIzinListScreen> {
     required String status,
     String? catatan,
   }) async {
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+
     final result = await _izinService.updateStatusIzin(
       izinId: izinId,
       status: status,
-      catatan: catatan,
+      catatan: catatan?.trim().isEmpty == true ? null : catatan,
+      disetujuiOleh: currentUserId, 
     );
 
     if (!mounted) return;
@@ -203,10 +261,10 @@ class _AdminIzinListScreenState extends State<AdminIzinListScreen> {
           ),
           backgroundColor: status == 'diizinkan'
               ? AppColors.success
-              : AppColors.statusDitolak,
+              : AppColors.error,
         ),
       );
-      _loadData();
+      await _loadData();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -217,99 +275,16 @@ class _AdminIzinListScreenState extends State<AdminIzinListScreen> {
     }
   }
 
-  void _showExportOptions() {
-    if (_filteredData.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tidak ada data untuk diekspor'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
-    }
-
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Export Data',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ListTile(
-                  leading: const Icon(Icons.table_view_rounded,
-                      color: AppColors.primary),
-                  title: const Text('Export ke Excel (.xlsx)'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _processExport('excel');
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.description_rounded,
-                      color: AppColors.primary),
-                  title: const Text('Export ke CSV (.csv)'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _processExport('csv');
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _processExport(String format) async {
-    try {
-      final path = format == 'excel'
-          ? await ExportService.exportIzinToExcel(_filteredData)
-          : await ExportService.exportIzinToCsv(_filteredData);
-
-      final xFile = XFile(path,
-          mimeType: format == 'excel'
-              ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-              : 'text/csv');
-
-      // ignore: deprecated_member_use
-      await Share.shareXFiles([xFile], subject: 'Export Daftar Izin ($format)');
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal mengekspor data: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredData;
 
     return Column(
       children: [
-        // Filter chips
+        // Filter chips 
         Container(
           width: double.infinity,
-          color: Colors.white,
+          color: Theme.of(context).scaffoldBackgroundColor,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -324,8 +299,11 @@ class _AdminIzinListScreenState extends State<AdminIzinListScreen> {
                     onSelected: (_) => setState(() => _filterStatus = f.value),
                     selectedColor: AppColors.primary,
                     labelStyle: TextStyle(
-                      color:
-                          isSelected ? Colors.white : AppColors.textSecondary,
+                      color: isSelected 
+                          ? Colors.white 
+                          : (Theme.of(context).brightness == Brightness.dark 
+                              ? Colors.white70 
+                              : Colors.black87),
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.normal,
                     ),
@@ -335,37 +313,37 @@ class _AdminIzinListScreenState extends State<AdminIzinListScreen> {
             ),
           ),
         ),
-        const Divider(height: 1, color: AppColors.divider),
+        Divider(
+          height: 1, 
+          color: Theme.of(context).brightness == Brightness.dark
+              ? AppColors.dividerDark
+              : AppColors.divider,
+        ),
 
-        // Count badge
+        // Count badge & Refresh Button
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
             children: [
               Text(
                 '${filtered.length} izin',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
-                  color: AppColors.textSecondary,
+                  color: Theme.of(context).brightness == Brightness.dark 
+                      ? Colors.white70 
+                      : Colors.black54,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               const Spacer(),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.download_rounded, size: 16),
-                label: const Text('Export Data'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: const BorderSide(color: AppColors.primary),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  minimumSize: const Size(0, 32),
-                ),
-                onPressed: _showExportOptions,
-              ),
-              const SizedBox(width: 8),
               IconButton(
-                icon: const Icon(Icons.refresh_rounded,
-                    size: 20, color: AppColors.textSecondary),
+                icon: Icon(
+                  Icons.refresh_rounded,
+                  size: 20, 
+                  color: Theme.of(context).brightness == Brightness.dark 
+                      ? Colors.white70 
+                      : Colors.black54,
+                ),
                 onPressed: _loadData,
                 tooltip: 'Refresh',
               ),
@@ -424,10 +402,12 @@ class _AdminIzinListScreenState extends State<AdminIzinListScreen> {
             color: AppColors.textMuted.withValues(alpha: 0.4),
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'Tidak ada izin',
             style: TextStyle(
-              color: AppColors.textSecondary,
+              color: Theme.of(context).brightness == Brightness.dark 
+                  ? Colors.white70 
+                  : Colors.black54,
               fontSize: 15,
               fontWeight: FontWeight.w500,
             ),
@@ -469,15 +449,21 @@ class _AdminIzinCard extends StatelessWidget {
             .format(DateTime.parse(data['tanggal_izin']))
         : '-';
     final isMenunggu = status == 'menunggu';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: isDark ? AppColors.dividerDark : AppColors.divider,
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header: nama + status
             Row(
               children: [
                 CircleAvatar(
@@ -498,17 +484,17 @@ class _AdminIzinCard extends StatelessWidget {
                     children: [
                       Text(
                         namaLengkap,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
-                          color: AppColors.textPrimary,
+                          color: isDark ? Colors.white : Colors.black87, 
                         ),
                       ),
                       Text(
                         '$kelas${nomorInduk.isNotEmpty ? ' • $nomorInduk' : ''}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.textMuted,
+                          color: isDark ? Colors.white60 : Colors.black54,
                         ),
                       ),
                     ],
@@ -518,10 +504,11 @@ class _AdminIzinCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            const Divider(height: 1, color: AppColors.divider),
+            Divider(
+              height: 1, 
+              color: isDark ? AppColors.dividerDark : AppColors.divider,
+            ),
             const SizedBox(height: 12),
-
-            // Alasan
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Row(
@@ -530,10 +517,10 @@ class _AdminIzinCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       alasan,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                        color: isDark ? Colors.white : Colors.black87, 
                         height: 1.3,
                       ),
                     ),
@@ -541,15 +528,11 @@ class _AdminIzinCard extends StatelessWidget {
                 ],
               ),
             ),
-
-            // Tanggal
             _InfoRow(
               icon: Icons.calendar_today_outlined,
               text: tanggal,
             ),
             const SizedBox(height: 12),
-
-            // Jam Keluar
             if (data['jam_keluar'] != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -558,8 +541,6 @@ class _AdminIzinCard extends StatelessWidget {
                   text: 'Keluar: ${_fmt(data['jam_keluar'])}',
                 ),
               ),
-
-            // Jam Kembali
             if (data['jam_kembali'] != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
@@ -568,8 +549,25 @@ class _AdminIzinCard extends StatelessWidget {
                   text: 'Kembali: ${_fmt(data['jam_kembali'])}',
                 ),
               ),
+            
+            if (!isMenunggu) ...[
+              (() {
+                final namaPemeriksa = data['pemeriksa']?['nama_lengkap'] ?? data['reviewed_by'];
+                if (namaPemeriksa != null) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: _InfoRow(
+                      icon: Icons.assignment_turned_in_rounded,
+                      text: status == 'diizinkan' 
+                          ? 'Diizinkan oleh: $namaPemeriksa' 
+                          : 'Ditolak oleh: $namaPemeriksa',
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              })(),
+            ],
 
-            // Action buttons (only for menunggu)
             if (isMenunggu) ...[
               const SizedBox(height: 14),
               Row(
@@ -624,17 +622,20 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isDark ? Colors.white70 : Colors.black54;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 15, color: AppColors.textMuted),
+        Icon(icon, size: 15, color: color),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
-              color: AppColors.textSecondary,
+              color: color,
             ),
           ),
         ),

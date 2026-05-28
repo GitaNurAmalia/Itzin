@@ -31,7 +31,6 @@ class IzinService {
 
       final response = await supabase.rpc('buat_izin', params: params);
 
-      // response adalah JSON: { success: bool, izin_id?: int, sisa_kuota?: int, message?: string }
       if (response is Map) {
         return Map<String, dynamic>.from(response);
       }
@@ -41,7 +40,7 @@ class IzinService {
     }
   }
 
-  // Ambil daftar izin milik user yang sedang login
+  // Ambil daftar izin milik user yang sedang login (Siswa)
   Future<List<Map<String, dynamic>>> getIzinSaya() async {
     try {
       final user = supabase.auth.currentUser;
@@ -56,21 +55,38 @@ class IzinService {
       final List<Map<String, dynamic>> izinList =
           List<Map<String, dynamic>>.from(response);
 
-      // Fetch profile untuk user
-      final prof = await supabase
+      // 1. Ambil profile untuk siswa itu sendiri
+      final profSiswa = await supabase
           .from('profiles')
           .select('nama_lengkap, kelas, nomor_induk')
           .eq('id', user.id)
           .maybeSingle();
 
-      if (prof != null) {
-        for (var i = 0; i < izinList.length; i++) {
-          izinList[i]['profiles'] = prof;
+      // Looping untuk menyisipkan data profil siswa DAN profil guru pemeriksa
+      for (var i = 0; i < izinList.length; i++) {
+        if (profSiswa != null) {
+          izinList[i]['profiles'] = profSiswa;
+        }
+
+        // 2. AMBIL PROFIL GURU PEMERIKSA (reviewed_by) JIKA ADA
+        final reviewedBy = izinList[i]['reviewed_by'];
+        if (reviewedBy != null) {
+          final profGuru = await supabase
+              .from('profiles')
+              .select('nama_lengkap')
+              .eq('id', reviewedBy)
+              .maybeSingle();
+          
+          if (profGuru != null) {
+            // Dibungkus ke dalam map 'pemeriksa' agar strukturnya sama dengan UI Admin
+            izinList[i]['pemeriksa'] = profGuru;
+          }
         }
       }
 
       return izinList;
     } catch (e) {
+      debugPrint("ERROR getIzinSaya: $e");
       return [];
     }
   }
@@ -112,8 +128,8 @@ class IzinService {
           List<Map<String, dynamic>>.from(response);
 
       // Ambil profile secara manual satu per satu tanpa Relation Join
-      // (Bypass error foreign key Supabase)
       for (var i = 0; i < izinList.length; i++) {
+        // 1. Ambil Profil Siswa (user_id)
         final userId = izinList[i]['user_id'];
         if (userId != null) {
           final prof = await supabase
@@ -125,6 +141,19 @@ class IzinService {
             izinList[i]['profiles'] = prof;
           }
         }
+
+        // 2. AMBIL PROFIL GURU PEMERIKSA (reviewed_by) SECARA OTOMATIS
+        final reviewedBy = izinList[i]['reviewed_by'];
+        if (reviewedBy != null) {
+          final profGuru = await supabase
+              .from('profiles')
+              .select('nama_lengkap')
+              .eq('id', reviewedBy)
+              .maybeSingle();
+          if (profGuru != null) {
+            izinList[i]['pemeriksa'] = profGuru;
+          }
+        }
       }
       return izinList;
     } catch (e) {
@@ -133,25 +162,41 @@ class IzinService {
     }
   }
 
-  // Admin: Update status izin via RPC (agar kuota ter-refund jika ditolak)
+  // Admin: Update status izin via RPC
   Future<Map<String, dynamic>> updateStatusIzin({
     required int izinId,
     required String status,
     String? catatan,
+    String? disetujuiOleh, 
   }) async {
     try {
       final params = <String, dynamic>{
         'p_izin_id': izinId,
         'p_status': status,
       };
+      
       if (catatan != null && catatan.isNotEmpty) {
         params['p_catatan'] = catatan;
+      }
+      
+      if (disetujuiOleh != null && disetujuiOleh.isNotEmpty) {
+        params['p_disetujui_oleh'] = disetujuiOleh;
       }
 
       final response = await supabase.rpc('update_status_izin', params: params);
 
       if (response is Map) {
-        return Map<String, dynamic>.from(response);
+        final resultMap = Map<String, dynamic>.from(response);
+        
+        // Jembatan sinkronisasi data ke UI: jika SQL mengembalikan status == 'success',
+        // kita set key 'success' menjadi true agar UI tidak salah membaca respons.
+        if (resultMap['status'] == 'success' || resultMap['success'] == true) {
+          resultMap['success'] = true;
+        } else {
+          resultMap['success'] = false;
+        }
+        
+        return resultMap;
       }
       return {'success': false, 'message': 'Respons tidak valid dari server'};
     } catch (e) {

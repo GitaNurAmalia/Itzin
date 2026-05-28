@@ -63,12 +63,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 1. Deteksi apakah sistem sedang menggunakan Dark Mode atau Light Mode
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // 2. Setup palet warna dinamis agar kontras di kedua mode
+    final dynamicScaffoldBg = isDark ? const Color(0xFF121212) : AppColors.primary;
+    final dynamicCardBg = isDark ? const Color(0xFF1E1E1E) : AppColors.surface;
+    final dynamicTextColor = isDark ? Colors.white : AppColors.textPrimary;
+    final dynamicSubtitleColor = isDark ? Colors.white60 : AppColors.textSecondary;
+
     return Scaffold(
-      backgroundColor: AppColors.primary,
+      backgroundColor: dynamicScaffoldBg, // Mengikuti mode tema
       body: SafeArea(
         child: Column(
           children: [
-            // Header
+            // Header (Logo & Judul)
             Expanded(
               flex: 2,
               child: Center(
@@ -111,106 +120,143 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
 
-            // Form card
+            // Form card (Panel bawah yang melengkung)
             Expanded(
               flex: 3,
               child: Container(
                 width: double.infinity,
-                decoration: const BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                decoration: BoxDecoration(
+                  color: dynamicCardBg, // Berubah menjadi hitam/abu gelap saat dark mode
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
                 ),
                 padding: const EdgeInsets.all(28),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Masuk',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                        ),
+                child: Theme(
+                  // 3. Memaksa InputTheme lokal mengikuti variabel dinamis isDark
+                  data: Theme.of(context).copyWith(
+                    inputDecorationTheme: InputDecorationTheme(
+                      labelStyle: TextStyle(color: dynamicSubtitleColor),
+                      hintStyle: TextStyle(color: dynamicSubtitleColor.withValues(alpha: 0.5)),
+                      prefixIconColor: dynamicSubtitleColor,
+                      suffixIconColor: dynamicSubtitleColor,
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: isDark ? Colors.white24 : Colors.black12),
                       ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Masuk dengan akun yang diberikan sekolah',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
-                        ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: isDark ? Colors.white : AppColors.primary, width: 2),
                       ),
-                      const SizedBox(height: 28),
-
-                      // Email field
-                      TextFormField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
-                          labelText: 'Email',
-                          prefixIcon: Icon(Icons.email_outlined),
-                        ),
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) {
-                            return 'Email wajib diisi';
-                          }
-                          if (!v.contains('@')) {
-                            return 'Format email tidak valid';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Password field
-                      TextFormField(
-                        controller: _passwordController,
-                        obscureText: _obscurePassword,
-                        textInputAction: TextInputAction.done,
-                        onFieldSubmitted: (_) => _handleLogin(),
-                        decoration: InputDecoration(
-                          labelText: 'Password',
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined,
+                    ),
+                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Masuk',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: dynamicTextColor, // Menjadi putih saat dark mode
                             ),
-                            onPressed: () => setState(
-                                () => _obscurePassword = !_obscurePassword),
                           ),
-                        ),
-                        validator: (v) {
-                          if (v == null || v.isEmpty) {
-                            return 'Password wajib diisi';
-                          }
-                          if (v.length < 6) {
-                            return 'Password minimal 6 karakter';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 28),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Masuk dengan akun yang diberikan sekolah',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: dynamicSubtitleColor, // Menjadi abu terang saat dark mode
+                            ),
+                          ),
+                          const SizedBox(height: 28),
 
-                      // Login button
-                      ElevatedButton(
-                        onPressed: _isLoading ? null : _handleLogin,
-                        child: _isLoading
-                            ? const SizedBox(
-                                height: 22,
-                                width: 22,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
+                          // Email field
+                          TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            style: TextStyle(color: dynamicTextColor), // Warna teks ketikan siswa
+                            decoration: const InputDecoration(
+                              labelText: 'Email',
+                              prefixIcon: Icon(Icons.email_outlined),
+                            ),
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) {
+                                return 'Email wajib diisi';
+                              }
+                              if (!v.contains('@')) {
+                                return 'Format email tidak valid';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Password field
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            textInputAction: TextInputAction.done,
+                            onFieldSubmitted: (_) => _handleLogin(),
+                            style: TextStyle(color: dynamicTextColor), // Warna teks ketikan siswa
+                            decoration: InputDecoration(
+                              labelText: 'Password',
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
                                 ),
-                              )
-                            : const Text('Masuk'),
+                                onPressed: () => setState(
+                                    () => _obscurePassword = !_obscurePassword),
+                              ),
+                            ),
+                            validator: (v) {
+                              if (v == null || v.isEmpty) {
+                                return 'Password wajib diisi';
+                              }
+                              if (v.length < 6) {
+                                return 'Password minimal 6 karakter';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 32),
+
+                          // Login button
+                          SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _handleLogin,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      height: 22,
+                                      width: 22,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2.5,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Masuk',
+                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                    ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
